@@ -295,6 +295,10 @@ def flights_to(api_key,origin,destination):
 load_dotenv()  # Loads variables from .env
 api_key = os.getenv("AVIATION_API_KEY")
 
+# For cloud deployment 
+# api_key = st.secrets["API_KEY"]
+
+
 # Datset that provides a comprehensive list of cities and their latitude/longitude, country alongside other details
 
 cities = load_csv("worldcities.csv")

@@ -57,6 +57,24 @@ cp .env.example .env
 Streamlit run Streamlit_demo.py
 ```
 
+### **6. Deploy to cloud**
+you would need to uncomment and comment some code in the Streamlit_app.py file first:
+uncomment:
+```bash
+API_KEY = st.secrets["API_KEY"]
+```
+comment:
+```bash
+import os
+from dotenv import load_dotenv
+API_KEY = os.getenv("API_KEY")
+```
+You would not use .env instead you would use Streamlit Secrets Manager. So in production you would go to app settings > secrets and then paste
+```bash
+# Starts the Streamlit framework and spins up app in your browser at localhost
+API_KEY = "your_actual_api_key_here"
+```
+
 ## 📜 License
 This project is licensed under the [MIT License](LICENSE).
 
