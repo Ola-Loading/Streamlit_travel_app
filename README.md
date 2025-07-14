@@ -6,7 +6,7 @@ This streamlit application leverages the Python-based framework Sreamlit in orde
 
 ## 📂 Project Structure
 /Streamlit_Travel_app
-│── Streamlit_demo.py         # Main script containing functions and workflow for app
+│── Streamlit_app.py         # Main script containing functions and workflow for app
 ├── .env.example              # Example environment file -- place the AviationStack API key within
 │── worldcities.csv           # CSV file containg relevant city data such as longitudes and latitudes
 │── .gitignore                # Ignore unnecessary files
