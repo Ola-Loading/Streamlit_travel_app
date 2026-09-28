@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 st.set_page_config(page_title="Japa", page_icon=":material/waving_hand:")
-st.title("No-one wants to be stuck in the cold (cough cough the UK) come make we JAPA!")
+st.title("Tired of the cold? Let's find you somewhere warmer to JAPA to!")
 
 st.write(
     """
@@ -113,9 +113,21 @@ def compute_threshold_countries(threshold, location, min_distance_km, max_distan
     # Filter cities within the user-chosen distance range
     df = df[(df['distance'] > min_distance_km) & (df['distance'] < max_distance_km)]
 
-    # Limit to top N cities within that range (e.g., 130)
-    df = df.head(130)
-    # df = df.head()            #for testing purposes
+    # Sample across the whole distance range rather than just the nearest N,
+    # so the API call budget (~130) doesn't cluster near the closer edge of
+    # the range: split it into bins spanning min-max distance and take an
+    # even share of the nearest cities from each bin.
+    max_cities = 130
+    n_bins = 10
+    if len(df) > max_cities:
+        bin_edges = np.linspace(min_distance_km, max_distance_km, n_bins + 1)
+        distance_bin = pd.cut(df['distance'], bins=bin_edges, include_lowest=True)
+        per_bin_cap = max(1, max_cities // n_bins)
+        # df is already sorted by distance ascending, so cumcount within each
+        # bin ranks cities nearest-first inside that bin
+        df = df[distance_bin.groupby(distance_bin, observed=True).cumcount() < per_bin_cap]
+
+    df = df.head(max_cities)
     df.rename(columns={"lat": "latitude", "lng": "longitude"},inplace=True)
 
 
