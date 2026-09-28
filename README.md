@@ -10,7 +10,7 @@ This streamlit application leverages the Python-based framework Sreamlit in orde
 ├── .env.example                    # Example environment file -- place the AviationStack API key within
 │── data/
 │   │── worldcities.csv             # CSV file containg relevant city data such as longitudes and latitudes
-│   │── GlobalAirportDatabase.txt   # Airport related data such as each airport's IATA code which is necessary for API interaction
+│   │── airports.csv                # Airport data (IATA code, name, city, country, lat/lng), cleaned from the GlobalAirportDatabase source
 │── .gitignore                      # Ignore unnecessary files
 │── README.md                       # Project documentation
 │── requirements.txt                # Dependencies

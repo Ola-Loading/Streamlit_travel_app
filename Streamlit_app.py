@@ -218,13 +218,8 @@ def airport_selector(location, desired_location):
     latitude_2 = desired_location[0]   #User selected travel location
     longitude = location[1] 
     longitude_2 = desired_location[1]
-    airports = pd.read_csv("data/GlobalAirportDatabase.txt", delimiter=":",header=None)
-    # Selecting relevant columns and re-naming appropriately
-    airports = airports[[1,2,3,4,14,15]]
-
-    airports = airports[airports[1].isnull()==False]    #removing entries without an IATA code which is necessary for the AviationStack API
-
-    airports.rename({1:'IATA Code',2:'Airport Name',3:'City/Town',4:'Country',14:'latitude',15:'longitude'},axis='columns',inplace=True)
+    airports = pd.read_csv("data/airports.csv")
+    airports = airports[airports['IATA Code'].isnull()==False]    #removing entries without an IATA code which is necessary for the AviationStack API
 
     # in order to calculate the airports closest to the user's location for selection by user
     airports['distance'] = airports.apply(lambda row: haversine(latitude, longitude, row['latitude'], row['longitude']),
