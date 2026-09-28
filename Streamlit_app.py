@@ -218,7 +218,7 @@ def airport_selector(location, desired_location):
     latitude_2 = desired_location[0]   #User selected travel location
     longitude = location[1] 
     longitude_2 = desired_location[1]
-    airports = pd.read_csv("GlobalAirportDatabase.txt", delimiter=":",header=None) 
+    airports = pd.read_csv("data/GlobalAirportDatabase.txt", delimiter=":",header=None)
     # Selecting relevant columns and re-naming appropriately
     airports = airports[[1,2,3,4,14,15]]
 
@@ -319,7 +319,7 @@ api_key = os.getenv("AVIATION_API_KEY") or st.secrets.get("AVIATION_API_KEY")
 
 # Datset that provides a comprehensive list of cities and their latitude/longitude, country alongside other details
 
-cities = load_csv("worldcities.csv")
+cities = load_csv("data/worldcities.csv")
 cities['city'] = cities['city'].str.lower()
 location  =  st.text_input(label = 'your current location', placeholder = 'enter your current city')
 location = location.lower()
