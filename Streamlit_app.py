@@ -333,13 +333,13 @@ if location:
     if location in cities['city'].values:
         filtered_cities = cities[cities['city'] == location]
         if len(filtered_cities) > 1:
-            country_list = list(filtered_cities['country'])
+            country_list = sorted(filtered_cities['country'].unique())
             country = st.selectbox(label = 'Choose Which Country', options = country_list)
             if country:
                 filtered_cities = filtered_cities[filtered_cities['country'] == country]
                 
                 if len(filtered_cities) > 1:
-                    selection_list = list(filtered_cities['admin_name'])
+                    selection_list = sorted(filtered_cities['admin_name'].unique())
                     selection = st.selectbox(label = 'Choose one', options = selection_list)
                     if selection:
                         # for when there are more than one entry for the same cityname and countryname
