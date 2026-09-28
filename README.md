@@ -6,13 +6,14 @@ This streamlit application leverages the Python-based framework Sreamlit in orde
 
 ## 📂 Project Structure
 /Streamlit_Travel_app
-│── Streamlit_app.py         # Main script containing functions and workflow for app
-├── .env.example              # Example environment file -- place the AviationStack API key within
-│── worldcities.csv           # CSV file containg relevant city data such as longitudes and latitudes
-│── .gitignore                # Ignore unnecessary files
-│── README.md                 # Project documentation
-│── requirements.txt          # Dependencies
-│── GlobalAiportDatabase.txt  # Airport related data such as each airport's IATA code which is necessary for API interaction
+│── Streamlit_app.py               # Main script containing functions and workflow for app
+├── .env.example                    # Example environment file -- place the AviationStack API key within
+│── data/
+│   │── worldcities.csv             # CSV file containg relevant city data such as longitudes and latitudes
+│   │── airports.csv                # Airport data (IATA code, name, city, country, lat/lng), cleaned from the GlobalAirportDatabase source
+│── .gitignore                      # Ignore unnecessary files
+│── README.md                       # Project documentation
+│── requirements.txt                # Dependencies
 
 ## 🛠️ Installation & Setup
 ### **1. Clone the Repository**
@@ -38,41 +39,30 @@ pip install --upgrade pip setuptools wheel
 ```
 
 
-### **3. Install Dependencies and system wide resources**
+### **3. Install Dependencies**
 ```bash
 pip install -r requirements.txt
-brew install ffmpeg      # macOS
-sudo apt install ffmpeg  # Linux
 ```
 
 ### **4. Configure Environment Variables**
-Copy `.env.example` to `.env` and update the required API keys and Kafka configurations.
+Copy `.env.example` to `.env` and set your AviationStack API key.
 ```bash
 cp .env.example .env
 ```
 
-### **5. Run Streamlit_demo.py script**
+### **5. Run the app**
 ```bash
-# Starts the Streamlit framework and spins up app in your browser at localhost
-Streamlit run Streamlit_demo.py
+streamlit run Streamlit_app.py
 ```
 
 ### **6. Deploy to cloud**
-you would need to uncomment and comment some code in the Streamlit_app.py file first:
-uncomment:
-```bash
-API_KEY = st.secrets["API_KEY"]
+Streamlit Cloud doesn't read `.env` files, so instead you'd set the key via Streamlit's Secrets Manager (app settings > Secrets):
+```toml
+AVIATION_API_KEY = "your_actual_api_key_here"
 ```
-comment:
-```bash
-import os
-from dotenv import load_dotenv
-API_KEY = os.getenv("API_KEY")
-```
-You would not use .env instead you would use Streamlit Secrets Manager. So in production you would go to app settings > secrets and then paste
-```bash
-# Starts the Streamlit framework and spins up app in your browser at localhost
-API_KEY = "your_actual_api_key_here"
+and swap the `load_dotenv()` / `os.getenv("AVIATION_API_KEY")` call in `Streamlit_app.py` for:
+```python
+api_key = st.secrets["AVIATION_API_KEY"]
 ```
 
 ## 📜 License
