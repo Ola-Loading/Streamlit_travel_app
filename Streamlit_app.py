@@ -1,15 +1,19 @@
+import logging
+
 import pandas as pd
-import numpy as np 
+import numpy as np
 import streamlit as st
 import openmeteo_requests
 import requests_cache
 from retry_requests import retry
 from datetime import datetime
 import pydeck as pdk
-import re
 import os
 import requests
 from dotenv import load_dotenv
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 st.set_page_config(page_title="Japa", page_icon=":material/waving_hand:")
@@ -94,7 +98,8 @@ def weather_chart(location):
 	return (filtered_df,hourly_dataframe)
 
 
-def top_threshold_countries(threshold,location):
+@st.cache_data
+def compute_threshold_countries(threshold, location):
     df = cities.copy()   # earlier dataset with city information
     # threshold is the value from the slider that the user inputs
     latitude = location[0]
@@ -122,18 +127,24 @@ def top_threshold_countries(threshold,location):
     params = {
         "latitude": [i[2] for i in df.values],
         "longitude": [i[3] for i in df.values],
-        "daily": ["temperature_2m_min" for i in range(len(df.values))]
+        "daily": ["temperature_2m_min"] * len(df)
     }
 
 
     responses = openmeteo.weather_api(url, params=params)
+
+    if len(responses) != len(df):
+        logger.warning(
+            "Open-Meteo returned %d responses for %d requested cities; truncating to the shorter length",
+            len(responses), len(df),
+        )
 
     daily_data = {"date":[],
                 "current_day_temp":[],
                 "latitude":[],
                 "longitude":[]}
 
-    for i in range(len(responses)):
+    for i in range(min(len(responses), len(df))):
         response = responses[i]
         daily = response.Daily()
         daily_temperature_2m = daily.Variables(0).ValuesAsNumpy()
@@ -155,45 +166,51 @@ def top_threshold_countries(threshold,location):
     daily_dataframe = pd.DataFrame(data = daily_data)
     daily_dataframe = daily_dataframe.join(df.set_index(['latitude','longitude']),on=['latitude','longitude'])
     daily_dataframe = daily_dataframe[daily_dataframe["current_day_temp"].isnull() == False]
-    
-	    
-    if len(daily_dataframe) > 0:  
-		# Create Pydeck map
+
+    return daily_dataframe
+
+
+def top_threshold_countries(threshold, location):
+    latitude, longitude = location[0], location[1]
+    daily_dataframe = compute_threshold_countries(threshold, location)
+
+    if len(daily_dataframe) > 0:
+        # Create Pydeck map
         layer = pdk.Layer(
-			"ScatterplotLayer",
-			data=daily_dataframe,
-			get_position='[longitude, latitude]',
-			get_fill_color='[255, 0, 0, 160]',
-			get_radius=8000,
-			pickable=True)
-        
+            "ScatterplotLayer",
+            data=daily_dataframe,
+            get_position='[longitude, latitude]',
+            get_fill_color='[255, 0, 0, 160]',
+            get_radius=8000,
+            pickable=True)
+
         tooltip = {
-			"html": "<b>City:</b> {city}<br/>"
-					"<b>Country:</b> {country}<br/>"
-					"<b>Temp (°C):</b> {current_day_temp}",
-			"style": {
-				"backgroundColor": "steelblue",
-				"color": "white"
-			}}
-        
+            "html": "<b>City:</b> {city}<br/>"
+                    "<b>Country:</b> {country}<br/>"
+                    "<b>Temp (°C):</b> {current_day_temp}",
+            "style": {
+                "backgroundColor": "steelblue",
+                "color": "white"
+            }}
+
         view_state = pdk.ViewState(
-			latitude=latitude,
-			longitude=longitude,
-			zoom=3,
-			pitch=0,
-		)
-        
+            latitude=latitude,
+            longitude=longitude,
+            zoom=3,
+            pitch=0,
+        )
+
         st.pydeck_chart(pdk.Deck(
-			map_style='light', 
-			initial_view_state=view_state,
-			layers=[layer],
-			tooltip=tooltip
-		))
-    
+            map_style='light',
+            initial_view_state=view_state,
+            layers=[layer],
+            tooltip=tooltip
+        ))
+
     else:
         st.write('No Cities near your location that meet this requirement :((' )
 
-    return (daily_dataframe) 
+    return daily_dataframe
 
 def airport_selector(location, desired_location):
     
@@ -217,9 +234,12 @@ def airport_selector(location, desired_location):
     airports['distance_2'] = airports.apply(lambda row: haversine(latitude_2, longitude_2, row['latitude'], row['longitude']),
     axis=1)
     
+    if airports.empty:
+        return airports, airports
+
     airports.sort_values(by=['distance'], inplace=True)
     airports_2 = airports.sort_values(by=['distance_2'])
-    
+
 
     airports = airports[0:10]
     airports_2 = airports_2[0:10]
@@ -292,11 +312,9 @@ def flights_to(api_key,origin,destination):
 
 
 
-load_dotenv()  # Loads variables from .env
-api_key = os.getenv("AVIATION_API_KEY")
-
-# For cloud deployment 
-# api_key = st.secrets["API_KEY"]
+load_dotenv()  # Loads variables from .env (used for local development)
+# On Streamlit Cloud there is no .env file; the key is read from Secrets instead.
+api_key = os.getenv("AVIATION_API_KEY") or st.secrets.get("AVIATION_API_KEY")
 
 
 # Datset that provides a comprehensive list of cities and their latitude/longitude, country alongside other details
@@ -346,52 +364,67 @@ if location:
 if location:
     if longitude != None and latitude != None:
 
+        rough_location = (*latitude,*longitude)    #Unpack the values as it is a list object with one element
+
         try:
-            rough_location = (*latitude,*longitude)    #Unpack the values as it is a list object with one element 
-            dfs = weather_chart(rough_location)    #Retrieve weather forecast where the user is 
+            dfs = weather_chart(rough_location)    #Retrieve weather forecast where the user is
+        except Exception:
+            logger.exception("Failed to fetch weather for location %s", rough_location)
+            st.error("Sorry, I couldn't fetch the weather forecast for your location right now. Please try again shortly.")
+        else:
             min_value = int(dfs[0]['temperature_2m'].min())  #Current daily temperature for user location
 
             st.subheader(f"Weather forecast (where you are) ")
-            st.line_chart(dfs[1].set_index("date")["temperature_2m"], x_label='Date/time', y_label='Temperature °C') # Weather forecast Plot 
+            st.line_chart(dfs[1].set_index("date")["temperature_2m"], x_label='Date/time', y_label='Temperature °C') # Weather forecast Plot
 
             a = st.slider(label='Pick a temperature any temperature in °C',min_value=0 , max_value=50, help="Your ideal minimum temperature")
 
             if a :
                 st.subheader("Below are the locations of some cities not too far not too close that achieve the minimum temperature required")
 
-                data = top_threshold_countries(threshold = a,location = rough_location)
+                try:
+                    data = top_threshold_countries(threshold = a,location = rough_location)
+                except Exception:
+                    logger.exception("Failed to fetch candidate destinations for location %s, threshold %s", rough_location, a)
+                    st.error("Sorry, I couldn't fetch destination weather data right now. Please try again shortly.")
+                    data = None
 
-                st.write(data[['date','current_day_temp','city','country']])
-                
-                desired_city = st.selectbox(label = 'Pick a city to travel to', options = data[data['city']!=city]['city'])
-                
-                if desired_city:
-                    desired_city_location = data[data['city']== desired_city]
-                    desired_city_location = (*desired_city_location['latitude'],*desired_city_location['longitude']) #Unpack the pandas series object 
+                if data is not None:
+                    st.write(data[['date','current_day_temp','city','country']])
 
-                    airports_available =  airport_selector(rough_location,desired_city_location)
-                    origins = airports_available[0]['Airport Name']
-                    destinations =  airports_available[1]['Airport Name']
+                    desired_city = st.selectbox(label = 'Pick a city to travel to', options = data[data['city']!=city]['city'])
 
-                    desired_airport = st.selectbox(label = 'Pick an airport to fly from', options = origins)
-                    desired_destination_airport = st.selectbox(label = 'Pick an airport to arrive at', options = destinations)
-                    if desired_airport and desired_destination_airport:
-                        origin = airports_available[0][airports_available[0]['Airport Name'] == desired_airport]['IATA Code'].values[0]
-                        destination = airports_available[1][airports_available[1]['Airport Name'] == desired_destination_airport]['IATA Code'].values[0]
-                        final_flights = flights_to(api_key,origin=origin,destination=destination)
+                    if desired_city:
+                        desired_city_location = data[data['city']== desired_city]
+                        desired_city_location = (*desired_city_location['latitude'],*desired_city_location['longitude']) #Unpack the pandas series object
 
-                        if len(final_flights) < 1:
-                            st.write('Unfortunately there are no scheduled flights between these two airports today :( try another combination')
+                        airports_available =  airport_selector(rough_location,desired_city_location)
+                        origins = airports_available[0]['Airport Name']
+                        destinations =  airports_available[1]['Airport Name']
+
+                        if origins.empty or destinations.empty:
+                            st.write('No nearby airports found for one of these locations, try another city.')
                         else:
-                            st.subheader("Voila! some flights for ya")
-                            st.write(final_flights)
+                            desired_airport = st.selectbox(label = 'Pick an airport to fly from', options = origins)
+                            desired_destination_airport = st.selectbox(label = 'Pick an airport to arrive at', options = destinations)
+                            if desired_airport and desired_destination_airport:
+                                origin = airports_available[0][airports_available[0]['Airport Name'] == desired_airport]['IATA Code'].values[0]
+                                destination = airports_available[1][airports_available[1]['Airport Name'] == desired_destination_airport]['IATA Code'].values[0]
+
+                                try:
+                                    final_flights = flights_to(api_key,origin=origin,destination=destination)
+                                except Exception:
+                                    logger.exception("Failed to fetch flights from %s to %s", origin, destination)
+                                    st.error("Sorry, I couldn't fetch flight data right now. Please try again shortly.")
+                                else:
+                                    if len(final_flights) < 1:
+                                        st.write('Unfortunately there are no scheduled flights between these two airports today :( try another combination')
+                                    else:
+                                        st.subheader("Voila! some flights for ya")
+                                        st.write(final_flights)
 
             else:
                 st.write('Waiting for your temperature selection')
-                
-
-        except Exception as e:
-            st.write(f'error is {e}')
 
 
 
