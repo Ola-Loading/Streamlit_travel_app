@@ -99,7 +99,7 @@ def weather_chart(location):
 
 
 @st.cache_data
-def compute_threshold_countries(threshold, location):
+def compute_threshold_countries(threshold, location, min_distance_km, max_distance_km):
     df = cities.copy()   # earlier dataset with city information
     # threshold is the value from the slider that the user inputs
     latitude = location[0]
@@ -110,8 +110,8 @@ def compute_threshold_countries(threshold, location):
     df.sort_values(by=['distance'], inplace=True)
 
 
-    # Filter cities that are at least 300 km away, but no more than 3000 km
-    df = df[(df['distance'] > 300) & (df['distance'] < 3000)]
+    # Filter cities within the user-chosen distance range
+    df = df[(df['distance'] > min_distance_km) & (df['distance'] < max_distance_km)]
 
     # Limit to top N cities within that range (e.g., 130)
     df = df.head(130)
@@ -170,9 +170,9 @@ def compute_threshold_countries(threshold, location):
     return daily_dataframe
 
 
-def top_threshold_countries(threshold, location):
+def top_threshold_countries(threshold, location, min_distance_km, max_distance_km):
     latitude, longitude = location[0], location[1]
-    daily_dataframe = compute_threshold_countries(threshold, location)
+    daily_dataframe = compute_threshold_countries(threshold, location, min_distance_km, max_distance_km)
 
     if len(daily_dataframe) > 0:
         # Create Pydeck map
@@ -308,8 +308,14 @@ def flights_to(api_key,origin,destination):
 
 
 load_dotenv()  # Loads variables from .env (used for local development)
-# On Streamlit Cloud there is no .env file; the key is read from Secrets instead.
-api_key = os.getenv("AVIATION_API_KEY") or st.secrets.get("AVIATION_API_KEY")
+api_key = os.getenv("AVIATION_API_KEY")
+if not api_key:
+    # On Streamlit Cloud there is no .env file; the key is read from Secrets
+    # instead. st.secrets raises if no secrets.toml exists at all, so guard it.
+    try:
+        api_key = st.secrets.get("AVIATION_API_KEY")
+    except Exception:
+        api_key = None
 
 
 # Datset that provides a comprehensive list of cities and their latitude/longitude, country alongside other details
@@ -374,13 +380,19 @@ if location:
 
             a = st.slider(label='Pick a temperature any temperature in °C',min_value=0 , max_value=50, help="Your ideal minimum temperature")
 
+            min_distance, max_distance = st.slider(
+                label='How far are you willing to fly? (km)',
+                min_value=0, max_value=15000, value=(300, 3000),
+                help="Destinations closer than the minimum or further than the maximum won't be suggested",
+            )
+
             if a :
                 st.subheader("Below are the locations of some cities not too far not too close that achieve the minimum temperature required")
 
                 try:
-                    data = top_threshold_countries(threshold = a,location = rough_location)
+                    data = top_threshold_countries(threshold = a,location = rough_location, min_distance_km = min_distance, max_distance_km = max_distance)
                 except Exception:
-                    logger.exception("Failed to fetch candidate destinations for location %s, threshold %s", rough_location, a)
+                    logger.exception("Failed to fetch candidate destinations for location %s, threshold %s, distance range %s-%s", rough_location, a, min_distance, max_distance)
                     st.error("Sorry, I couldn't fetch destination weather data right now. Please try again shortly.")
                     data = None
 
