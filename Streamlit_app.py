@@ -387,7 +387,7 @@ if location:
             )
 
             if a :
-                st.subheader("Below are the locations of some cities not too far not too close that achieve the minimum temperature required")
+                st.subheader(f"Below are the locations of some cities between {min_distance}km and {max_distance}km away that achieve the minimum temperature required")
 
                 try:
                     data = top_threshold_countries(threshold = a,location = rough_location, min_distance_km = min_distance, max_distance_km = max_distance)
