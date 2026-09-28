@@ -65,8 +65,8 @@ def weather_chart(location):
 	# The order of variables in hourly or daily is important to assign them correctly below
 	url = "https://api.open-meteo.com/v1/forecast"
 	params = {
-		f"latitude": {location[0]},
-		f"longitude": {location[1]},
+		"latitude": location[0],
+		"longitude": location[1],
 		"hourly": ["temperature_2m","apparent_temperature"]
 	}
 	responses = openmeteo.weather_api(url, params=params)
@@ -95,7 +95,7 @@ def weather_chart(location):
 
 
 def top_threshold_countries(threshold,location):
-    df = cities   # earlier dataset with city information 
+    df = cities.copy()   # earlier dataset with city information
     # threshold is the value from the slider that the user inputs
     latitude = location[0]
     longitude = location[1]
@@ -302,16 +302,16 @@ api_key = os.getenv("AVIATION_API_KEY")
 # Datset that provides a comprehensive list of cities and their latitude/longitude, country alongside other details
 
 cities = load_csv("worldcities.csv")
+cities['city'] = cities['city'].str.lower()
 location  =  st.text_input(label = 'your current location', placeholder = 'enter your current city')
-location = location.lower() 
+location = location.lower()
 longitude = None
 latitude = None
 
 #Checks user input to ensure it is present in the aformentioned Cities dataset. If it is it will extract the latitude and longitude. Further loops are used in order to extract the specific city intended as some countries have the same cityname. Establishes the longitude latitude variables used in later functions
 
 if location:
-    if location in [i.lower() for i in list(cities['city'])]:
-        cities['city'] = cities['city'].str.lower()
+    if location in cities['city'].values:
         filtered_cities = cities[cities['city'] == location]
         if len(filtered_cities) > 1:
             country_list = list(filtered_cities['country'])
